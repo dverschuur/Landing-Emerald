@@ -1,8 +1,12 @@
 ﻿/**
- * router.js — Motor de enrutamiento del App Shell (hash routing).
+ * router.js — Motor de enrutamiento del App Shell (History API).
+ *
+ * Las URLs son limpias: dominio/home, dominio/about, ... (sin #, sin
+ * index.html). Requiere que el servidor devuelva index.html para
+ * cualquier ruta desconocida (ver _redirects / vercel.json / .htaccess).
  *
  * Responsabilidades:
- *  1. Interceptar la navegación (hashchange + carga inicial).
+ *  1. Interceptar la navegación (clicks + popstate + carga inicial).
  *  2. Hacer fetch del fragmento HTML de la vista.
  *  3. Inyectarlo en #app-content.
  *  4. Ejecutar la lógica de la vista vía import() dinámico (ES6),
@@ -28,6 +32,11 @@ const routes = {
 const NOT_FOUND = { view: 'views/not-found.html', module: null, title: 'Esmeralda Group - 404' };
 const DEFAULT_ROUTE = '/home';
 
+// Raíz de la app deducida de la ubicación de este módulo (js/router.js).
+// En la raíz del dominio queda ''; si algún día se sirve desde una
+// subcarpeta, queda '/subcarpeta' y todas las rutas siguen funcionando.
+const BASE = new URL('../', import.meta.url).pathname.replace(/\/$/, '');
+
 // ---------------------------------------------------------------------------
 // Estado global de la aplicación
 // ---------------------------------------------------------------------------
@@ -45,10 +54,22 @@ const cache = new Map();   // path -> markup (los fragmentos son estáticos)
 // ---------------------------------------------------------------------------
 // Utilidades
 // ---------------------------------------------------------------------------
+/** Convierte un pathname del navegador en una ruta interna ('/home', '/about'...). */
+function stripBase(pathname) {
+    let raw = decodeURIComponent(pathname || '/');
+    if (BASE && raw.startsWith(BASE)) raw = raw.slice(BASE.length);
+    raw = raw.replace(/\/index\.html?$/i, '');  // /index.html -> raíz
+    raw = raw.replace(/\/+$/, '');              // quita la barra final
+    return raw || DEFAULT_ROUTE;
+}
+
 function normalizePath() {
-    const raw = window.location.hash.replace(/^#/, '');
-    if (!raw || raw === '/') return DEFAULT_ROUTE;
-    return raw.split('?')[0].replace(/\/$/, '') || DEFAULT_ROUTE;
+    return stripBase(window.location.pathname);
+}
+
+/** URL pública de una ruta interna: '/home' -> '/home' (o '/subcarpeta/home'). */
+function hrefFor(path) {
+    return `${BASE}${path}`;
 }
 
 async function fetchView(url) {
@@ -65,7 +86,8 @@ async function fetchView(url) {
 function setActiveNav(path) {
     // Selector global (no solo #mainNav): también cubre los links del menú móvil.
     document.querySelectorAll('.nav-item').forEach((link) => {
-        const target = (link.getAttribute('href') || '').replace(/^#/, '');
+        const raw = link.getAttribute('href') || '';
+        const target = stripBase(new URL(raw, window.location.href).pathname);
         const isActive = target === path;
 
         link.classList.toggle('nav-active', isActive);
@@ -104,7 +126,7 @@ async function render(path) {
     activeModule = null;
 
     try {
-        const markup = await fetchView(route.view);
+        const markup = await fetchView(`${BASE}/${route.view}`);
         if (token !== navToken) return; // otra navegación ganó la carrera
 
         outlet.innerHTML = markup;
@@ -214,26 +236,65 @@ function initShell() {
         mobileMenu.querySelectorAll('a').forEach((link) => {
             link.addEventListener('click', closeMobileMenu);
         });
-        window.addEventListener('hashchange', closeMobileMenu);
+        window.addEventListener('popstate', closeMobileMenu);
     }
 }
 
 // ---------------------------------------------------------------------------
 // Arranque
 // ---------------------------------------------------------------------------
-export function navigate(path) {
-    if (window.location.hash === `#${path}`) render(path);
-    else window.location.hash = path;
+export function navigate(path, { replace = false } = {}) {
+    if (normalizePath() === path) {
+        render(path);
+        return;
+    }
+    const url = hrefFor(path);
+    if (replace) window.history.replaceState({ path }, '', url);
+    else window.history.pushState({ path }, '', url);
+    render(path);
 }
 
-function onHashChange() {
+/**
+ * Intercepta los clicks en enlaces internos para no recargar la página.
+ * Deja pasar: anclas (#seccion), mailto/tel, destinos externos, target="_blank",
+ * descargas, clicks con modificador y enlaces a archivos reales (PDF, imágenes).
+ */
+function onDocumentClick(e) {
+    if (e.defaultPrevented || e.button !== 0) return;
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+
+    const link = e.target.closest('a');
+    if (!link || link.hasAttribute('download')) return;
+    if (link.target && link.target !== '_self') return;
+
+    const href = link.getAttribute('href');
+    const isOtherScheme = /^[a-z][a-z0-9+.-]*:/i.test(href) && !/^https?:/i.test(href);
+    if (!href || href.startsWith('#') || isOtherScheme) return;
+
+    const url = new URL(href, window.location.href);
+    if (url.origin !== window.location.origin) return;
+
+    const path = stripBase(url.pathname);
+    if (!(path in routes)) return;  // no es una ruta de la SPA: navegación normal
+
+    e.preventDefault();
+    navigate(path);
+}
+
+function onPopState() {
     render(normalizePath());
 }
 
 document.addEventListener('DOMContentLoaded', () => {
     initShell();
-    window.addEventListener('hashchange', onHashChange);
-    if (!window.location.hash) window.location.replace(`#${DEFAULT_ROUTE}`);
-    render(normalizePath());
+    document.addEventListener('click', onDocumentClick);
+    window.addEventListener('popstate', onPopState);
+
+    // Limpia la URL de entrada ('/', '/index.html', '/home/') dejándola canónica.
+    const path = normalizePath();
+    if (window.location.pathname !== hrefFor(path)) {
+        window.history.replaceState({ path }, '', hrefFor(path) + window.location.search);
+    }
+    render(path);
 });
 
