@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/((?!img/|js/|views/|favicon|apple-touch-icon|android-chrome|site.webmanifest).*)", "destination": "/index.html" }
+  ]
+}
