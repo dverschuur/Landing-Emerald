@@ -1,4 +1,4 @@
-/**
+﻿/**
  * router.js — Motor de enrutamiento del App Shell (hash routing).
  *
  * Responsabilidades:
@@ -16,16 +16,16 @@ import { mountHeroSlider, syncHeroSlider } from './components/heroSlider.js';
 // Tabla de rutas
 // ---------------------------------------------------------------------------
 const routes = {
-    '/home':     { view: 'views/home.html',      module: './views/home.js',     title: 'CTL - Inicio' },
-    '/about':    { view: 'views/about.html',     module: './views/about.js',    title: 'CTL - Quiénes somos' },
-    '/services': { view: 'views/services.html',  module: './views/services.js', title: 'CTL - Servicios' },
-    '/projects': { view: 'views/projects.html',  module: null,                  title: 'CTL - Proyectos' },
-    '/proyectos': { view: 'views/proyectos.html', module: './views/proyectos.js', title: 'CTL - Proyectos Emblemáticos' },
-    '/compliance': { view: 'views/compliance.html', module: './views/compliance.js', title: 'CTL - Compliance' },
-    '/contact':  { view: 'views/contact.html',   module: './views/contact.js',  title: 'CTL - Contacto' },
+    '/home':     { view: 'views/home.html',      module: './views/home.js',     title: 'Esmeralda Group - Inicio' },
+    '/about':    { view: 'views/about.html',     module: './views/about.js',    title: 'Esmeralda Group - Quienes somos' },
+    '/services': { view: 'views/services.html',  module: './views/services.js', title: 'Esmeralda Group - Servicios' },
+    '/projects': { view: 'views/projects.html',  module: null,                  title: 'Esmeralda Group - Proyectos' },
+    '/proyectos': { view: 'views/proyectos.html', module: './views/proyectos.js', title: 'Esmeralda Group - Proyectos' },
+    '/compliance': { view: 'views/compliance.html', module: './views/compliance.js', title: 'Esmeralda Group - Compliance' },
+    '/contact':  { view: 'views/contact.html',   module: './views/contact.js',  title: 'Esmeralda Group - Contacto' },
 };
 
-const NOT_FOUND = { view: 'views/not-found.html', module: null, title: 'CTL - 404' };
+const NOT_FOUND = { view: 'views/not-found.html', module: null, title: 'Esmeralda Group - 404' };
 const DEFAULT_ROUTE = '/home';
 
 // ---------------------------------------------------------------------------
@@ -33,7 +33,7 @@ const DEFAULT_ROUTE = '/home';
 // ---------------------------------------------------------------------------
 export const appState = {
     currentPath: null,
-    lang: localStorage.getItem('ctl-lang') || 'ES',
+    lang: localStorage.getItem('emerald-lang') || 'ES',
     isLoading: false,
 };
 
@@ -183,7 +183,7 @@ function initShell() {
     if (langToggle) {
         langToggle.addEventListener('click', () => {
             appState.lang = appState.lang === 'ES' ? 'EN' : 'ES';
-            localStorage.setItem('ctl-lang', appState.lang);
+            localStorage.setItem('emerald-lang', appState.lang);
             applyLang(appState.lang);
         });
     }
@@ -236,3 +236,4 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!window.location.hash) window.location.replace(`#${DEFAULT_ROUTE}`);
     render(normalizePath());
 });
+
